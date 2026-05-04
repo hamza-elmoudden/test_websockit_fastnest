@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern WebSocket Tester</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --bg-sidebar: #f1f5f9;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 12px;
+            --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            font-family: var(--font-sans); 
+            background-color: #f0f2f5; 
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .root {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            width: 950px;
+            height: 650px;
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sid-sec {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .sid-sec label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .sid-sec input {
+            width: 100%;
+            font-size: 13px;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-card);
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .sid-sec input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px 20px;
+            background: rgba(255,255,255,0.4);
+        }
+
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; transition: all 0.3s; }
+        .dot.ok { background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); }
+        .dot.err { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2); }
+
+        .stat-txt { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+
+        .actions { padding: 16px 20px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+        
+        .act-btn {
+            font-size: 12px;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-card);
+            color: var(--text-main);
+            cursor: pointer;
+            text-align: left;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .act-btn:hover:not(:disabled) {
+            background: #f8fafc;
+            border-color: var(--primary);
+        }
+
+        #btn-connect { background: var(--primary); color: white; border: none; text-align: center; font-weight: 600; margin-bottom: 4px; }
+        #btn-connect:hover { background: var(--primary-hover); }
+
+        .act-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            padding: 12px 0 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        /* Main Chat Area */
+        .main { display: flex; flex-direction: column; background: var(--bg-card); height: 100%; overflow: hidden; }
+        
+        .log-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            background: white;
+            z-index: 10;
+        }
+
+        .log-head-txt { font-size: 13px; font-weight: 700; color: var(--text-main); text-transform: uppercase; letter-spacing: 0.05em; }
+        .clear-btn { font-size: 11px; color: var(--text-muted); background: none; border: none; cursor: pointer; text-decoration: underline; }
+
+        .log {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background-color: #fafbfc;
+            background-image: radial-gradient(#e2e8f0 0.8px, transparent 0.8px);
+            background-size: 20px 20px;
+            scroll-behavior: smooth;
+        }
+
+        .msg {
+            font-size: 13px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            max-width: 85%;
+            line-height: 1.5;
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .msg.in { background: #ffffff; border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 2px; }
+        .msg.out { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .msg.sys { background: #f1f5f9; color: var(--text-muted); align-self: center; font-size: 11px; border-radius: 6px; }
+        .msg.err { background: #fef2f2; border: 1px solid #fee2e2; color: #991b1b; align-self: center; }
+
+        .msg .ts { font-size: 10px; opacity: 0.5; display: block; margin-bottom: 2px; }
+        .msg.out .ts { color: white; opacity: 0.8; }
+        .msg .ev { font-weight: 700; margin-right: 6px; text-transform: uppercase; font-size: 11px; }
+
+        .send-row {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            background: white;
+        }
+
+        .send-row input {
+            flex: 1;
+            font-size: 14px;
+            padding: 10px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .send-row input:focus { border-color: var(--primary); }
+
+        .send-btn {
+            background: var(--primary);
+            color: white;
+            padding: 0 20px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .send-btn:hover:not(:disabled) { background: var(--primary-hover); }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+    </style>
+</head>
+<body>
+
+<h2 class="sr-only">WebSocket tester — connect to a FastNest WebSocket server</h2>
+
+<div class="root">
+  <div class="sidebar">
+    <div class="sid-sec">
+      <label>Server URL</label>
+      <input id="url" value="ws://localhost:8000/ws" />
+    </div>
+    <div class="sid-sec">
+      <label>Your name</label>
+      <input id="uname" value="Alice" placeholder="Display name" />
+    </div>
+    <div class="sid-sec">
+      <label>Room</label>
+      <input id="room" value="general" placeholder="Room name" />
+    </div>
+    
+    <div class="status-row">
+      <div class="dot" id="dot"></div>
+      <span class="stat-txt" id="stat">Disconnected</span>
+    </div>
+
+    <div class="actions">
+      <button class="act-btn" id="btn-connect" onclick="connect()">Connect</button>
+      <button class="act-btn" id="btn-disconnect" disabled onclick="disconnect()">Disconnect</button>
+
+      <div class="act-label">Room Events</div>
+      <button class="act-btn" id="btn-join" disabled onclick="sendJoin()">Join Room</button>
+      <button class="act-btn" id="btn-bcast" disabled onclick="sendBroadcast()">Broadcast to All</button>
+      
+      <div class="act-label">System</div>
+      <button class="act-btn" id="btn-ping" disabled onclick="sendPing()">Send Ping</button>
+      <button class="act-btn" id="btn-stats" disabled onclick="sendStats()">Request Stats</button>
+      <button class="act-btn" id="btn-timer" disabled onclick="sendTimer()">Start Timer (5s)</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="log-head">
+      <span class="log-head-txt">Message log</span>
+      <button class="clear-btn" onclick="clearLog()">Clear Log</button>
+    </div>
+    <div class="log" id="log"></div>
+    <div class="send-row">
+      <input id="msg-in" placeholder='Type a message...' disabled
+             onkeydown="if(event.key==='Enter')sendMsg()" />
+      <button class="send-btn" id="btn-send" disabled onclick="sendMsg()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let ws = null;
+let pingTs = null;
+
+const $  = id => document.getElementById(id);
+const log = $('log');
+
+function ts() {
+  return new Date().toLocaleTimeString('en', {hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+function addMsg(type, event, data) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + type;
+  const pretty = typeof data === 'object' ? JSON.stringify(data, null, 0) : String(data);
+  
+  div.innerHTML = `
+    <span class="ts">${ts()}</span>
+    <div><span class="ev">${event}</span>${pretty.length < 200 ? pretty : pretty.slice(0,200)+'…'}</div>
+  `;
+  
+  log.appendChild(div);
+  
+  // FIX: Force scroll to bottom after DOM update
+  requestAnimationFrame(() => {
+    log.scrollTop = log.scrollHeight;
+  });
+}
+
+function clearLog() { log.innerHTML = ''; }
+
+function setConnected(yes) {
+  const d = $('dot'), s = $('stat');
+  d.className = 'dot' + (yes ? ' ok' : '');
+  s.textContent = yes ? 'Connected' : 'Disconnected';
+  ['btn-disconnect','btn-join','btn-ping','btn-stats','btn-timer','btn-bcast','msg-in','btn-send']
+    .forEach(id => $(id).disabled = !yes);
+  $('btn-connect').disabled = yes;
+}
+
+function connect() {
+  const url = $('url').value.trim();
+  if (!url) return;
+  addMsg('sys','Connecting to', url);
+  try {
+    ws = new WebSocket(url);
+  } catch(e) {
+    addMsg('err','Error', e.message);
+    return;
+  }
+
+  ws.onopen = () => {
+    setConnected(true);
+    addMsg('sys','Status','Connected');
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const {event, data} = JSON.parse(e.data);
+      if (event === 'pong' && pingTs) {
+        const rtt = ((Date.now() - pingTs)/1000).toFixed(3);
+        addMsg('in', event, {...data, rtt_s: rtt});
+        pingTs = null;
+      } else {
+        addMsg('in', event, data);
+      }
+    } catch {
+      addMsg('in','Raw', e.data);
+    }
+  };
+
+  ws.onclose = (e) => {
+    setConnected(false);
+    addMsg('sys','Status', `Disconnected (Code ${e.code})`);
+    ws = null;
+  };
+
+  ws.onerror = () => {
+    addMsg('err','Error','Connection failed.');
+    $('dot').className = 'dot err';
+    $('stat').textContent = 'Error';
+  };
+}
+
+function disconnect() {
+  if (ws) ws.close();
+}
+
+function send(event, data) {
+  if (!ws || ws.readyState !== 1) return;
+  const frame = JSON.stringify({event, data});
+  ws.send(frame);
+  addMsg('out', event, data);
+}
+
+function sendJoin()      { send('join', {room: $('room').value.trim(), name: $('uname').value.trim()}); }
+function sendPing()      { pingTs = Date.now(); send('ping', {ts: pingTs}); }
+function sendStats()     { send('stats', null); }
+function sendTimer()     { send('timer', 5); }
+function sendBroadcast() { send('broadcast:all', {text: 'Hello from ' + $('uname').value.trim()}); }
+
+function sendMsg() {
+  const text = $('msg-in').value.trim();
+  if (!text) return;
+  send('message', {text});
+  $('msg-in').value = '';
+}
+</script>
+</body>
+</html>
